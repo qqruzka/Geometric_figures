@@ -1,0 +1,68 @@
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <shared_mutex>
+#include <chrono>
+
+using namespace std;
+
+shared_mutex rwLock; // Мьютекс для синхронизации чтения и записи
+int sharedResource = 0;
+
+// Чтение с приоритетом для читателей
+void reader(int id) {
+    while (true) {
+        rwLock.lock_shared(); // Захват блокировки для чтения
+        cout << "Reader " << id << " reads value: " << sharedResource << endl;
+        this_thread::sleep_for(chrono::milliseconds(100));
+        rwLock.unlock_shared(); // Освобождаем блокировку для чтения
+        this_thread::sleep_for(chrono::milliseconds(100));
+    }
+}
+
+// Запись с приоритетом для писателей
+void writer(int id) {
+    while (true) {
+        rwLock.lock(); // Захват блокировки для записи
+        sharedResource += id;
+        cout << "Writer " << id << " writes value: " << sharedResource << endl;
+        this_thread::sleep_for(chrono::milliseconds(150));
+        rwLock.unlock(); // Освобождаем блокировку для записи
+        this_thread::sleep_for(chrono::milliseconds(150));
+    }
+}
+
+int main() {
+    // Выбор приоритета: читатели или писатели
+    bool readersPriority = true; // Установите в false для приоритета писателей
+
+    vector<thread> threads;
+    int numReaders = 5;
+    int numWriters = 3;
+
+    if (readersPriority) {
+        // Приоритет читателей: сначала создаем потоки читателей
+        for (int i = 0; i < numReaders; ++i) {
+            threads.emplace_back(reader, i + 1);
+        }
+        for (int i = 0; i < numWriters; ++i) {
+            threads.emplace_back(writer, i + 1);
+        }
+    }
+    else {
+        // Приоритет писателей: сначала создаем потоки писателей
+        for (int i = 0; i < numWriters; ++i) {
+            threads.emplace_back(writer, i + 1);
+        }
+        for (int i = 0; i < numReaders; ++i) {
+            threads.emplace_back(reader, i + 1);
+        }
+    }
+
+    // Ожидание завершения всех потоков (в данном случае бесконечный цикл)
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    return 0;
+}
